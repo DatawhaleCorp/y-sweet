@@ -18,12 +18,12 @@ use y_sweet::stores::filesystem::FileSystemStore;
 use y_sweet_core::{
     auth::Authenticator,
     store::{
-        s3::{S3Config, S3Store},
+        oss::{OssStore, OssConfig},
         Store,
     },
 };
 
-const DEFAULT_S3_REGION: &str = "us-east-1";
+const DEFAULT_OSS_REGION: &str = "cn-hangzhou";
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[derive(Parser)]
@@ -85,17 +85,17 @@ enum ServSubcommand {
     },
 }
 
-const S3_ACCESS_KEY_ID: &str = "AWS_ACCESS_KEY_ID";
-const S3_SECRET_ACCESS_KEY: &str = "AWS_SECRET_ACCESS_KEY";
-const S3_SESSION_TOKEN: &str = "AWS_SESSION_TOKEN";
-const S3_REGION: &str = "AWS_REGION";
-const S3_ENDPOINT: &str = "AWS_ENDPOINT_URL_S3";
-const S3_USE_PATH_STYLE: &str = "AWS_S3_USE_PATH_STYLE";
-fn parse_s3_config_from_env_and_args(
+const OSS_ACCESS_KEY_ID: &str = "ALIYUN_ACCESS_KEY_ID";
+const OSS_SECRET_ACCESS_KEY: &str = "ALIYUN_SECRET_ACCESS_KEY";
+const OSS_SESSION_TOKEN: &str = "ALIYUN_SESSION_TOKEN";
+const OSS_REGION: &str = "ALIYUN_REGION";
+const OSS_ENDPOINT: &str = "ALIYUN_ENDPOINT_URL_OSS";
+const OSS_USE_PATH_STYLE: &str = "ALIYUN_OSS_USE_PATH_STYLE";
+fn parse_oss_config_from_env_and_args(
     bucket: String,
     prefix: Option<String>,
-) -> anyhow::Result<S3Config> {
-    let use_path_style = env::var(S3_USE_PATH_STYLE).ok();
+) -> anyhow::Result<OssConfig> {
+    let use_path_style = env::var(OSS_USE_PATH_STYLE).ok();
     let path_style = if let Some(use_path_style) = use_path_style {
         if use_path_style.to_lowercase() == "true" {
             true
@@ -103,26 +103,26 @@ fn parse_s3_config_from_env_and_args(
             false
         } else {
             anyhow::bail!(
-                "If AWS_S3_USE_PATH_STYLE is set, it must be either \"true\" or \"false\""
+                "If ALIYUN_OSS_USE_PATH_STYLE is set, it must be either \"true\" or \"false\""
             )
         }
     } else {
         false
     };
 
-    Ok(S3Config {
-        key: env::var(S3_ACCESS_KEY_ID)
-            .map_err(|_| anyhow::anyhow!("{} env var not supplied", S3_ACCESS_KEY_ID))?,
-        region: env::var(S3_REGION).unwrap_or_else(|_| DEFAULT_S3_REGION.to_string()),
-        endpoint: env::var(S3_ENDPOINT).unwrap_or_else(|_| {
+    Ok(OssConfig {
+        key: env::var(OSS_ACCESS_KEY_ID)
+            .map_err(|_| anyhow::anyhow!("{} env var not supplied", OSS_ACCESS_KEY_ID))?,
+        region: env::var(OSS_REGION).unwrap_or_else(|_| DEFAULT_OSS_REGION.to_string()),
+        endpoint: env::var(OSS_ENDPOINT).unwrap_or_else(|_| {
             format!(
-                "https://s3.dualstack.{}.amazonaws.com",
-                env::var(S3_REGION).unwrap_or_else(|_| DEFAULT_S3_REGION.to_string())
+                "https://oss-{}.aliyuncs.com",
+                env::var(OSS_REGION).unwrap_or_else(|_| DEFAULT_OSS_REGION.to_string())
             )
         }),
-        secret: env::var(S3_SECRET_ACCESS_KEY)
-            .map_err(|_| anyhow::anyhow!("{} env var not supplied", S3_SECRET_ACCESS_KEY))?,
-        token: env::var(S3_SESSION_TOKEN).ok(),
+        secret: env::var(OSS_SECRET_ACCESS_KEY)
+            .map_err(|_| anyhow::anyhow!("{} env var not supplied", OSS_SECRET_ACCESS_KEY))?,
+        token: env::var(OSS_SESSION_TOKEN).ok(),
         bucket,
         bucket_prefix: prefix,
         // If the endpoint is overridden, we assume that the user wants path-style URLs.
@@ -131,16 +131,21 @@ fn parse_s3_config_from_env_and_args(
 }
 
 fn get_store_from_opts(store_path: &str) -> Result<Box<dyn Store>> {
-    if store_path.starts_with("s3://") {
+    if store_path.starts_with("http") {
         let url = url::Url::parse(store_path)?;
-        let bucket = url
+        let host = url
             .host_str()
-            .ok_or_else(|| anyhow::anyhow!("Invalid S3 URL"))?
+            .ok_or_else(|| anyhow::anyhow!("Invalid OSS URL"))?
+            .to_owned();
+        let bucket = host
+            .split('.')
+            .next()
+            .ok_or_else(|| anyhow::anyhow!("Invalid bucket"))?
             .to_owned();
         let bucket_prefix = url.path().trim_start_matches('/').to_owned();
         let bucket_prefix = (!bucket_prefix.is_empty()).then_some(bucket_prefix); // "" => None
-        let config = parse_s3_config_from_env_and_args(bucket, bucket_prefix)?;
-        let store = S3Store::new(config);
+        let config = parse_oss_config_from_env_and_args(bucket, bucket_prefix)?;
+        let store = OssStore::new(config);
         Ok(Box::new(store))
     } else {
         Ok(Box::new(FileSystemStore::new(PathBuf::from(store_path))?))
@@ -281,8 +286,8 @@ async fn main() -> Result<()> {
                     None
                 };
 
-                let s3_config = parse_s3_config_from_env_and_args(bucket, prefix)?;
-                let store = S3Store::new(s3_config);
+                let oss_config = parse_oss_config_from_env_and_args(bucket, prefix)?;
+                let store = OssStore::new(oss_config);
                 let store: Box<dyn Store> = Box::new(store);
                 store.init().await?;
                 Some(store)

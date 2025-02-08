@@ -957,6 +957,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "quick-xml"
+version = "0.37.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "165859e9e55f79d67b96c5d96f4e88b6f2695a1972849c15a6a3f5c59fc2c003"
+dependencies = [
+ "memchr",
+ "serde",
+]
+
+[[package]]
 name = "quinn"
 version = "0.11.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1213,6 +1223,25 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "955d28af4278de8121b7ebeb796b6a45735dc01436d898801014aced2773a3d6"
 
 [[package]]
+name = "rusty-oss"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bb90951ee0e70f1aa12e87161b9650db97005058b91ac1ff358c7b69ee441294"
+dependencies = [
+ "base64 0.22.1",
+ "hmac",
+ "md-5",
+ "percent-encoding",
+ "quick-xml 0.37.2",
+ "serde",
+ "serde_json",
+ "sha2",
+ "time",
+ "url",
+ "zeroize",
+]
+
+[[package]]
 name = "rusty-s3"
 version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1222,7 +1251,7 @@ dependencies = [
  "hmac",
  "md-5",
  "percent-encoding",
- "quick-xml",
+ "quick-xml 0.30.0",
  "serde",
  "serde_json",
  "sha2",
@@ -2101,6 +2130,7 @@ dependencies = [
  "getrandom",
  "rand",
  "reqwest",
+ "rusty-oss",
  "rusty-s3",
  "serde",
  "serde_json",
